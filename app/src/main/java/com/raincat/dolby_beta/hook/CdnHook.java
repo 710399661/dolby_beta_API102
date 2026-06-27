@@ -5,10 +5,8 @@ import android.content.Context;
 import com.raincat.dolby_beta.helper.ClassHelper;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * <pre>
@@ -20,16 +18,24 @@ import de.robv.android.xposed.XposedHelpers;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class CdnHook {
-    public CdnHook(Context context, int versionCode) {
+    public CdnHook(Context context, int versionCode, XposedModule module) {
         if (versionCode < 138)
             return;
-        for (Method m : ClassHelper.HttpInterceptor.getMethodList(context))
-            XposedBridge.hookMethod(m, new XC_MethodHook() {
+        List<Method> methodList = ClassHelper.HttpInterceptor.getMethodList(context);
+        if (methodList == null) return;
+        for (Method m : methodList)
+            _hookMethod2(m, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.beforeHookedMethod(param);
-                    param.setResult(param.args[2]);
+                    _setRes(param,_arg(param,2));
                 }
             });
     }

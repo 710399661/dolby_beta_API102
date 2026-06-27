@@ -2,7 +2,7 @@ package com.raincat.dolby_beta.utils;
 
 import com.raincat.dolby_beta.BuildConfig;
 
-import de.robv.android.xposed.XposedBridge;
+import android.util.Log;
 
 /**
  * <pre>
@@ -17,6 +17,6 @@ import de.robv.android.xposed.XposedBridge;
 public class LogUtils {
     public static void log(String text) {
         if (BuildConfig.DEBUG)
-            XposedBridge.log(text);
+            android.util.Log.w("XP", text);
     }
 }

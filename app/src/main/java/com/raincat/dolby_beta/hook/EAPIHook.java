@@ -12,8 +12,8 @@ import com.raincat.dolby_beta.helper.SettingHelper;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
+import java.lang.reflect.Method;
+
 
 
 /**
@@ -26,26 +26,36 @@ import de.robv.android.xposed.XposedBridge;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class EAPIHook {
-    public EAPIHook(final Context context) {
-        XposedBridge.hookMethod(ClassHelper.HttpResponse.getResultMethod(context), new XC_MethodHook() {
+    public EAPIHook(final Context context, XposedModule module) {
+        Method resultMethod = ClassHelper.HttpResponse.getResultMethod(context);
+        if (resultMethod == null) return;
+        _hookMethod2(resultMethod, new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                 //代理和黑胶都未开启
                 if (!SettingHelper.getInstance().isEnable(SettingHelper.black_key)
                         && !SettingHelper.getInstance().isEnable(SettingHelper.proxy_master_key))
                     return;
                 //返回参数不对
-                if ((!(param.getResult() instanceof String) && !(param.getResult() instanceof JSONObject)))
+                if ((!(_getRes(param) instanceof String) && !(_getRes(param) instanceof JSONObject)))
                     return;
                 //返回参数为空
-                String original = param.getResult().toString();
+                String original = _getRes(param).toString();
                 if (TextUtils.isEmpty(original)) {
                     return;
                 }
-                ClassHelper.HttpResponse httpResponse = new ClassHelper.HttpResponse(param.thisObject);
+                ClassHelper.HttpResponse httpResponse = new ClassHelper.HttpResponse(_this(param));
                 Object eapi = httpResponse.getEapi(context);
+                if (eapi == null) return;
                 Uri uri = ClassHelper.HttpUrl.getUri(context, eapi);
+                if (uri == null) return;
                 if (!uri.getPath().contains("/eapi/"))
                     return;
                 String path = uri.getPath();
@@ -123,7 +133,7 @@ public class EAPIHook {
                     original = CloudDao.getInstance(context).getSong(Integer.parseInt(songid));
                 }
 
-                param.setResult(param.getResult() instanceof JSONObject ? new JSONObject(original) : original);
+                _setRes(param,_getRes(param) instanceof JSONObject ? new JSONObject(original) : original);
             }
         });
     }
@@ -132,10 +142,10 @@ public class EAPIHook {
         int max_str_length = 1800;
         //大于4000时
         while (msg.length() > max_str_length) {
-            XposedBridge.log(msg.substring(0, max_str_length));
+            android.util.Log.w("XP", msg.substring(0, max_str_length));
             msg = msg.substring(max_str_length);
         }
         //剩余部分
-        XposedBridge.log(msg);
+        android.util.Log.w("XP", msg);
     }
 }

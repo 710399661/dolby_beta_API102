@@ -80,6 +80,15 @@ fastlane/readme.md
 # Version control
 vcs.xml
 
+# Claude
+.claude/
+
+# IntelliJ IDE
+.idea/
+
+# Migration / design docs
+MIGRATION_DESIGN_DOC.md
+
 # lint
 lint/intermediates/
 lint/generated/

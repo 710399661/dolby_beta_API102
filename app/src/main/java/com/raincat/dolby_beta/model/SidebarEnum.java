@@ -18,7 +18,7 @@ public class SidebarEnum {
     //所有枚举Map
     private static LinkedHashMap<String, String> enumMap;
     //当前版本枚举Map
-    private static LinkedHashMap<String, String> sidebarMap;
+    private static LinkedHashMap<String, String> sidebarMap = new LinkedHashMap<>();
 
     public static void setSidebarEnum(Object[] objectList) {
         sidebarMap = new LinkedHashMap<>();
@@ -47,7 +47,9 @@ public class SidebarEnum {
     }
 
     public static LinkedHashMap<String, String> getSidebarEnum() {
-        return sidebarMap;
+        // Fall back to the full enumMap if setSidebarEnum() hasn't been called yet
+        // (e.g. when HideSidebarHook hasn't found DrawerItemEnum class yet).
+        return (sidebarMap != null && !sidebarMap.isEmpty()) ? sidebarMap : enumMap;
     }
 
     static {

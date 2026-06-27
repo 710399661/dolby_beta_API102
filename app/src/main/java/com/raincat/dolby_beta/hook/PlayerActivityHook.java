@@ -12,8 +12,6 @@ import com.raincat.dolby_beta.helper.SettingHelper;
 
 import java.lang.reflect.Field;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * <pre>
@@ -25,25 +23,31 @@ import de.robv.android.xposed.XposedHelpers;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class PlayerActivityHook {
-    public PlayerActivityHook(Context context, final int versionCode) {
+    public PlayerActivityHook(Context context, final int versionCode, XposedModule module) {
         final boolean black = SettingHelper.getInstance().isEnable(SettingHelper.beauty_black_hide_key);
         final boolean ksong = SettingHelper.getInstance().isEnable(SettingHelper.beauty_ksong_hide_key);
-        XposedHelpers.findAndHookMethod(XposedHelpers.findClass("com.netease.cloudmusic.activity.PlayerActivity", context.getClassLoader()),
+        _hookMethod(_findClass("com.netease.cloudmusic.activity.PlayerActivity", context.getClassLoader()),
                 "onCreate", Bundle.class, new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                         super.afterHookedMethod(param);
                         ViewFlipper playerDiscViewFlipper = null;
-                        for (Field field : param.thisObject.getClass().getDeclaredFields()) {
+                        for (Field field : _this(param).getClass().getDeclaredFields()) {
                             if (black && field.getType().getName().contains("PlayerDiscViewFlipper")) {
                                 field.setAccessible(true);
-                                playerDiscViewFlipper = (ViewFlipper) field.get(param.thisObject);
+                                playerDiscViewFlipper = (ViewFlipper) field.get(_this(param));
                             }
                             if (ksong && field.getType().getName().contains("ImageView")) {
                                 field.setAccessible(true);
-                                ImageView imageView = (ImageView) field.get(param.thisObject);
-                                if (imageView.getContentDescription() != null) {
+                                ImageView imageView = (ImageView) field.get(_this(param));
+                                if (imageView != null && imageView.getContentDescription() != null) {
                                     if (imageView.getContentDescription().toString().contains("音街")
                                             || imageView.getContentDescription().toString().contains("铃声")) {
                                         ViewGroup.LayoutParams layoutParams = imageView.getLayoutParams();
@@ -91,19 +95,19 @@ public class PlayerActivityHook {
 
         if (SettingHelper.getInstance().isEnable(SettingHelper.beauty_rotation_key))
             if (versionCode >= 123) {
-                XposedHelpers.findAndHookMethod(XposedHelpers.findClass("com.netease.cloudmusic.ui.RotationRelativeLayout$AnimationHolder", context.getClassLoader()), "prepareAnimation", new XC_MethodHook() {
+                _hookMethod(_findClass("com.netease.cloudmusic.ui.RotationRelativeLayout$AnimationHolder", context.getClassLoader()), "prepareAnimation", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                         super.beforeHookedMethod(param);
-                        param.setResult(null);
+                        _setRes(param,null);
                     }
                 });
             } else {
-                XposedHelpers.findAndHookMethod(XposedHelpers.findClass("com.netease.cloudmusic.ui.RotationRelativeLayout$a", context.getClassLoader()), "b", new XC_MethodHook() {
+                _hookMethod(_findClass("com.netease.cloudmusic.ui.RotationRelativeLayout$a", context.getClassLoader()), "b", new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                         super.beforeHookedMethod(param);
-                        param.setResult(null);
+                        _setRes(param,null);
                     }
                 });
             }

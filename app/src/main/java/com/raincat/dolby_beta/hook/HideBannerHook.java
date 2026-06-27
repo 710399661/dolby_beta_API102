@@ -7,8 +7,6 @@ import android.view.ViewGroup;
 
 import com.raincat.dolby_beta.helper.SettingHelper;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * <pre>
@@ -19,19 +17,25 @@ import de.robv.android.xposed.XposedHelpers;
  *     version: 1.0
  * </pre>
  */
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class HideBannerHook {
     private String mainBannerContainerClassString = "com.netease.cloudmusic.ui.MainBannerContainer";
-    public HideBannerHook(Context context, final int versionCode) {
+    public HideBannerHook(Context context, final int versionCode, XposedModule module) {
         if (!SettingHelper.getInstance().isEnable(SettingHelper.beauty_banner_hide_key))
             return;
         if (versionCode < 138)
             mainBannerContainerClassString = "com.netease.cloudmusic.ui.NeteaseMusicViewFlipper";
 
-        if (XposedHelpers.findClassIfExists(mainBannerContainerClassString, context.getClassLoader()) != null)
-            XposedHelpers.findAndHookMethod(mainBannerContainerClassString, context.getClassLoader(), "onAttachedToWindow", new XC_MethodHook() {
+        if (_findClassIfExists(mainBannerContainerClassString, context.getClassLoader()) != null)
+            _hookMethod(mainBannerContainerClassString, context.getClassLoader(), "onAttachedToWindow", new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    View view = (View) param.thisObject;
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                    View view = (View) _this(param);
                     ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
                     layoutParams.height = 1;//改成0将导致无法下滑刷新
                     view.setLayoutParams(layoutParams);
@@ -40,11 +44,11 @@ public class HideBannerHook {
             });
 
         String playlistBannerContainerClassString = "com.netease.cloudmusic.ui.PlaylistBanner";
-        if (XposedHelpers.findClassIfExists(playlistBannerContainerClassString, context.getClassLoader()) != null)
-            XposedHelpers.findAndHookConstructor(playlistBannerContainerClassString, context.getClassLoader(), Context.class, AttributeSet.class, new XC_MethodHook() {
+        if (_findClassIfExists(playlistBannerContainerClassString, context.getClassLoader()) != null)
+            _findAndHookConstructor(playlistBannerContainerClassString, context.getClassLoader(), Context.class, AttributeSet.class, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    final View view = (View) param.thisObject;
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                    final View view = (View) _this(param);
                     view.post(() -> {
                         ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
                         layoutParams.height = 0;

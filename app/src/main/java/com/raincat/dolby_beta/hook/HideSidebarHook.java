@@ -13,9 +13,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * <pre>
@@ -26,6 +23,12 @@ import de.robv.android.xposed.XposedHelpers;
  *     version: 1.0
  * </pre>
  */
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class HideSidebarHook {
     private Class<?> classDrawerItemEnum;
     private HashMap<String, Boolean> sidebarSettingMap = new HashMap<>();
@@ -35,7 +38,7 @@ public class HideSidebarHook {
     private String methodRefreshDrawerString = "refreshDrawer";
     private String objectMDrawerContainerString = "mDrawerContainer";
 
-    public HideSidebarHook(Context context, int versionCode) {
+    public HideSidebarHook(Context context, int versionCode, XposedModule module) {
         if (versionCode < 138) {
             classMainDrawerString = "com.netease.cloudmusic.ui.l";
             classDrawerItemEnumString = "com.netease.cloudmusic.ui.l$b";
@@ -43,29 +46,30 @@ public class HideSidebarHook {
             objectMDrawerContainerString = "i";
         }
 
-        classDrawerItemEnum = XposedHelpers.findClassIfExists(classDrawerItemEnumString, context.getClassLoader());
+        classDrawerItemEnum = _findClassIfExists(classDrawerItemEnumString, context.getClassLoader());
         if (classDrawerItemEnum == null)
-            classDrawerItemEnum = XposedHelpers.findClassIfExists("com.netease.cloudmusic.music.biz.sidebar.ui.MainDrawer$DrawerItemEnum", context.getClassLoader());
+            classDrawerItemEnum = _findClassIfExists("com.netease.cloudmusic.music.biz.sidebar.ui.MainDrawer$DrawerItemEnum", context.getClassLoader());
         if (classDrawerItemEnum != null && classDrawerItemEnum.isEnum()) {
             Object[] enumConstants = classDrawerItemEnum.getEnumConstants();
             SidebarEnum.setSidebarEnum(enumConstants);
             sidebarSettingMap = SettingHelper.getInstance().getSidebarSetting(SidebarEnum.getSidebarEnum());
         }
 
-        if (versionCode >= 7003010 && ClassHelper.SidebarItem.getClazz(context) != null) {
-            XposedBridge.hookAllConstructors(ClassHelper.SidebarItem.getClazz(context), new XC_MethodHook() {
+        Class<?> sidebarItemClass = (versionCode >= 7003010) ? ClassHelper.SidebarItem.getClazz(context) : null;
+        if (sidebarItemClass != null) {
+            _hookAllCtors(sidebarItemClass, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.beforeHookedMethod(param);
-                    if (param.args.length == 2 && param.args[1] instanceof List) {
-                        List<Object> objectList = (List<Object>) param.args[1];
+                    if (param.args.length == 2 && _arg(param,1) instanceof List) {
+                        List<Object> objectList = (List<Object>) _arg(param,1);
                         for (Iterator<Object> iterator = objectList.iterator(); iterator.hasNext(); ) {
                             try {
                                 Object object = iterator.next();
-                                String enumString = XposedHelpers.callMethod(object, "getEnumType").toString();
+                                String enumString = _callM(object, "getEnumType").toString();
                                 if (!TextUtils.isEmpty(enumString) && !enumString.equals("SETTING")) {
                                     if (enumString.equals("GROUP")) {
-                                        int group = (int) XposedHelpers.callMethod(object, "getGroup");
+                                        int group = (int) _callM(object, "getGroup");
                                         if (group == 1 && sidebarSettingMap.get("GROUP1") != null || sidebarSettingMap.get("GROUP1")) {
                                             iterator.remove();
                                         } else if (group == 2 && sidebarSettingMap.get("GROUP2") != null || sidebarSettingMap.get("GROUP2")) {
@@ -81,12 +85,13 @@ public class HideSidebarHook {
                     }
                 }
             });
-        } else if (versionCode < 7003010) {
-            Class<?> mainDrawerClass = XposedHelpers.findClassIfExists(classMainDrawerString, context.getClassLoader());
+        } else {
+            // Fall back to old approach when SidebarItem class not found
+            Class<?> mainDrawerClass = _findClassIfExists(classMainDrawerString, context.getClassLoader());
             if (mainDrawerClass != null)
-                XposedHelpers.findAndHookMethod(mainDrawerClass, methodRefreshDrawerString, new XC_MethodHook() {
+                _hookMethod(mainDrawerClass, methodRefreshDrawerString, new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
+                    protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                         removeUselessItem(param, versionCode);
                     }
                 });
@@ -96,40 +101,28 @@ public class HideSidebarHook {
     private void removeUselessItem(XC_MethodHook.MethodHookParam param, int versionCode) {
         LinearLayout drawerContainer;
         LinearLayout dynamicContainer = null;
-        drawerContainer = (LinearLayout) XposedHelpers.getObjectField(param.thisObject, objectMDrawerContainerString);
+        drawerContainer = (LinearLayout) _getObjField(_this(param), objectMDrawerContainerString);
         if (versionCode >= 138)
-            dynamicContainer = (LinearLayout) XposedHelpers.getObjectField(param.thisObject, "mDynamicContainer");
+            dynamicContainer = (LinearLayout) _getObjField(_this(param), "mDynamicContainer");
         removeItemInner(drawerContainer);
         removeItemInner(dynamicContainer);
 
         if (sidebarSettingMap.get("DIV2") != null && sidebarSettingMap.get("DIV2")) {
-            try {
-                View div2 = (View) XposedHelpers.getObjectField(param.thisObject, "div2");
-                div2.setVisibility(View.GONE);
-            } catch (NoSuchFieldError ignored) {
-            }
+            View div2 = (View) _getObjField(_this(param), "div2");
+            if (div2 != null) div2.setVisibility(View.GONE);
         }
         if (sidebarSettingMap.get("DIV3") != null && sidebarSettingMap.get("DIV3")) {
-            try {
-                View div3 = (View) XposedHelpers.getObjectField(param.thisObject, "div3");
-                div3.setVisibility(View.GONE);
-            } catch (NoSuchFieldError ignored) {
-            }
+            View div3 = (View) _getObjField(_this(param), "div3");
+            if (div3 != null) div3.setVisibility(View.GONE);
         }
         if (sidebarSettingMap.get("DIV4") != null && sidebarSettingMap.get("DIV4")) {
-            try {
-                View div3 = (View) XposedHelpers.getObjectField(param.thisObject, "div4");
-                div3.setVisibility(View.GONE);
-            } catch (NoSuchFieldError ignored) {
-            }
+            View div4 = (View) _getObjField(_this(param), "div4");
+            if (div4 != null) div4.setVisibility(View.GONE);
         }
 
         if (sidebarSettingMap.get("VIP") != null && sidebarSettingMap.get("VIP")) {
-            try {
-                View mMainActivityDrawerHeaderCard = (View) XposedHelpers.getObjectField(param.thisObject, "mMainActivityDrawerHeaderCard");
-                mMainActivityDrawerHeaderCard.setVisibility(View.GONE);
-            } catch (NoSuchFieldError ignored) {
-            }
+            View headerCard = (View) _getObjField(_this(param), "mMainActivityDrawerHeaderCard");
+            if (headerCard != null) headerCard.setVisibility(View.GONE);
         }
     }
 

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.util.Log;
 
 import com.annimon.stream.Stream;
 
@@ -33,11 +34,14 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import de.robv.android.xposed.XposedHelpers;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
-import static de.robv.android.xposed.XposedHelpers.findClass;
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
-import static de.robv.android.xposed.XposedHelpers.findMethodsByExactParameters;
+import static com.raincat.dolby_beta.XposedAdapter._callM;
+import static com.raincat.dolby_beta.XposedAdapter._callSM;
+import static com.raincat.dolby_beta.XposedAdapter._findClass;
+import static com.raincat.dolby_beta.XposedAdapter._findField;
+import static com.raincat.dolby_beta.XposedAdapter._findMethods;
 
 /**
  * <pre>
@@ -120,9 +124,13 @@ public class ClassHelper {
     }
 
     private static Class<?> getClassByXposed(String className) {
-        Class<?> clazz = findClassIfExists(className, classLoader);
-        if (clazz == null)
-            clazz = findClassIfExists("com.netease.cloudmusic.NeteaseMusicApplication", classLoader);
+        Class<?> clazz = null;
+        try { clazz = classLoader.loadClass(className); }
+        catch (ClassNotFoundException ignored) {}
+        if (clazz == null) {
+            try { clazz = classLoader.loadClass("com.netease.cloudmusic.NeteaseMusicApplication"); }
+            catch (ClassNotFoundException ignored) {}
+        }
         return clazz;
     }
 
@@ -162,22 +170,30 @@ public class ClassHelper {
                     }
                 } catch (NoSuchElementException e) {
                     MessageHelper.sendNotification(context, MessageHelper.cookieClassNotFoundCode);
+                    return "MUSIC_U=";
                 }
             }
 
+            if (clazz == null) return "MUSIC_U=";
             Object cookieString = null;
             if (versionCode >= 154) {
                 //获取静态cookie方法
-                Method cookieMethod = XposedHelpers.findMethodsByExactParameters(clazz, clazz)[0];
-                Object cookie = XposedHelpers.callStaticMethod(clazz, cookieMethod.getName());
-                for (Method method : XposedHelpers.findMethodsByExactParameters(abstractClazz, String.class)) {
-                    if (method.getTypeParameters().length == 0 && method.getModifiers() == Modifier.PUBLIC) {
-                        cookieString = XposedHelpers.callMethod(cookie, method.getName());
+                Method[] cookieMethods = _findMethods(clazz, clazz);
+                if (cookieMethods.length == 0) return "MUSIC_U=";
+                Method cookieMethod = cookieMethods[0];
+                Object cookie = _callSM(clazz, cookieMethod.getName());
+                if (abstractClazz != null) {
+                    for (Method method : _findMethods(abstractClazz, String.class)) {
+                        if (method.getTypeParameters().length == 0 && method.getModifiers() == Modifier.PUBLIC) {
+                            cookieString = _callM(cookie, method.getName());
+                        }
                     }
                 }
             } else {
-                Method cookieMethod = XposedHelpers.findMethodsByExactParameters(clazz, String.class)[0];
-                cookieString = XposedHelpers.callStaticMethod(clazz, cookieMethod.getName());
+                Method[] cookieMethods = _findMethods(clazz, String.class);
+                if (cookieMethods.length == 0) return "MUSIC_U=";
+                Method cookieMethod = cookieMethods[0];
+                cookieString = _callSM(clazz, cookieMethod.getName());
             }
 
             return "MUSIC_U=" + cookieString;
@@ -240,16 +256,25 @@ public class ClassHelper {
         private static List<Method> methods;
         private static Method method;
 
-        static void getClazz(Context context) {
+        public static Class<?> getClazz() {
+            return clazz;
+        }
+
+        public static void initClazz(Context context) {
             if (clazz == null) {
-                Class<?> mainActivityClass = findClass("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader());
-                clazz = mainActivityClass.getSuperclass();
+                try {
+                    Class<?> mainActivityClass = _findClass("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader());
+                    if (mainActivityClass != null)
+                        clazz = mainActivityClass.getSuperclass();
+                } catch (Exception e) {
+                    // will be handled by caller
+                }
             }
         }
 
         public static List<Method> getTabItemStringMethods(Context context) {
             if (clazz == null)
-                getClazz(context);
+                initClazz(context);
             if (methods == null && clazz != null) {
                 List<Method> methodList = Arrays.asList(clazz.getDeclaredMethods());
                 methods = Stream.of(methodList)
@@ -265,7 +290,7 @@ public class ClassHelper {
         public static Method getViewPagerInitMethod(Context context) {
             if (method == null) {
                 try {
-                    List<Method> methodList = Arrays.asList(findClass("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader()).getDeclaredMethods());
+                    List<Method> methodList = Arrays.asList(_findClass("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader()).getDeclaredMethods());
                     method = Stream.of(methodList)
                             .filter(m -> m.getParameterTypes().length == 1)
                             .filter(m -> m.getReturnType() == void.class)
@@ -309,7 +334,7 @@ public class ClassHelper {
                             .findFirst()
                             .get();
                 } catch (NoSuchElementException e) {
-                    MessageHelper.sendNotification(context, MessageHelper.tabClassNotFoundCode);
+                    Log.w("ClassHelper", "BottomTabView class not found for this version");
                 }
             }
             return clazz;
@@ -317,22 +342,20 @@ public class ClassHelper {
 
         public static Method getTabInitMethod(Context context) {
             if (initMethod == null) {
-                Method[] methods = findMethodsByExactParameters(clazz, ArrayList.class);
+                if (clazz == null) return null;
+                Method[] methods = _findMethods(clazz, ArrayList.class);
                 if (methods.length != 0)
                     initMethod = methods[0];
-                else
-                    MessageHelper.sendNotification(context, MessageHelper.tabClassNotFoundCode);
             }
             return initMethod;
         }
 
         public static Method getTabRefreshMethod(Context context) {
             if (refreshMethod == null) {
-                Method[] methods = findMethodsByExactParameters(clazz, void.class, List.class);
+                if (clazz == null) return null;
+                Method[] methods = _findMethods(clazz, void.class, List.class);
                 if (methods.length != 0)
                     refreshMethod = methods[0];
-                else
-                    MessageHelper.sendNotification(context, MessageHelper.tabClassNotFoundCode);
             }
             return refreshMethod;
         }
@@ -362,7 +385,7 @@ public class ClassHelper {
                             .findFirst()
                             .get();
                 } catch (NoSuchElementException e) {
-                    MessageHelper.sendNotification(context, MessageHelper.sidebarClassNotFoundCode);
+                    Log.w("ClassHelper", "SidebarItem class not found for this version");
                 }
             }
             return clazz;
@@ -489,12 +512,14 @@ public class ClassHelper {
         }
 
         public Object getHeadersObject(Context context) throws IllegalAccessException, NullPointerException {
-            Field[] fields = getClazz(context).getDeclaredFields();
+            Class<?> clz = getClazz(context);
+            if (clz == null) return null;
+            Field[] fields = clz.getDeclaredFields();
             Field dataField = Stream.of(fields)
                     .filter(f -> Stream.of(f.getType()).anyMatch(pf -> pf == OKHttp3Header.getClazz(context)))
                     .filter(f -> Stream.of(f.getType().getDeclaredFields()).anyMatch(pf -> pf.getType() == String[].class))
-                    .findFirst().get();
-
+                    .findFirst().orElse(null);
+            if (dataField == null) return null;
             dataField.setAccessible(true);
             return dataField.get(okHttp3Response);
         }
@@ -531,11 +556,13 @@ public class ClassHelper {
         }
 
         public String[] getHeaders(Context context) throws IllegalAccessException, NullPointerException {
-            Field[] fields = getClazz(context).getDeclaredFields();
+            Class<?> clz = getClazz(context);
+            if (clz == null) return null;
+            Field[] fields = clz.getDeclaredFields();
             Field dataField = Stream.of(fields)
                     .filter(f -> Stream.of(f.getType()).anyMatch(pf -> pf == String[].class))
-                    .findFirst().get();
-
+                    .findFirst().orElse(null);
+            if (dataField == null) return null;
             dataField.setAccessible(true);
             return (String[]) dataField.get(okHttp3Header);
         }
@@ -581,24 +608,28 @@ public class ClassHelper {
         }
 
         public Object getResponseObject(Context context) throws IllegalAccessException, NullPointerException {
-            Field[] fields = getClazz(context).getDeclaredFields();
+            Class<?> clz = getClazz(context);
+            if (clz == null) return null;
+            Field[] fields = clz.getDeclaredFields();
             Field dataField = Stream.of(fields)
                     .filter(f -> Stream.of(f.getType().getInterfaces()).anyMatch(i -> i == Closeable.class))
                     .filter(f -> Stream.of(f.getType().getDeclaredFields()).anyMatch(pf -> pf.getType().getName().startsWith("okhttp3")))
-                    .findFirst().get();
-
+                    .findFirst().orElse(null);
+            if (dataField == null) return null;
             dataField.setAccessible(true);
             return dataField.get(httpResponse);
         }
 
         public Object getEapi(Context context) throws IllegalAccessException, NullPointerException {
-            Field[] fields = getClazz(context).getDeclaredFields();
+            Class<?> clz = getClazz(context);
+            if (clz == null) return null;
+            Field[] fields = clz.getDeclaredFields();
             Field dataField = Stream.of(fields)
                     .filter(c -> Modifier.isAbstract(c.getType().getModifiers()))
                     .filter(c -> c.getType().getSuperclass() == Object.class)
                     .filter(c -> Stream.of(c.getType().getDeclaredFields()).anyMatch(m -> m.getType().getName().startsWith("okhttp3")))
-                    .findFirst().get();
-
+                    .findFirst().orElse(null);
+            if (dataField == null) return null;
             dataField.setAccessible(true);
             return dataField.get(httpResponse);
         }
@@ -606,11 +637,13 @@ public class ClassHelper {
         public static Method getResultMethod(Context context) {
             if (getResultMethod == null) {
                 try {
-                    List<Method> methodList = Arrays.asList(getClazz(context).getDeclaredMethods());
+                    Class<?> clz = getClazz(context);
+                    if (clz == null) return null;
+                    List<Method> methodList = Arrays.asList(clz.getDeclaredMethods());
                     getResultMethod = Stream.of(methodList)
                             .filter(m -> m.getExceptionTypes().length == 2)
                             .findFirst()
-                            .get();
+                            .orElse(null);
                 } catch (Exception e) {
                     MessageHelper.sendNotification(context, MessageHelper.coreClassNotFoundCode);
                 }
@@ -651,7 +684,10 @@ public class ClassHelper {
         }
 
         public static Uri getUri(Context context, Object eapi) throws IllegalAccessException, NullPointerException {
-            Field uriField = XposedHelpers.findFirstFieldByExactType(getClazz(context), Uri.class);
+            Class<?> clz = getClazz(context);
+            if (clz == null) return null;
+            Field uriField = _findField(clz, Uri.class);
+            if (uriField == null) return null;
             uriField.setAccessible(true);
             return (Uri) uriField.get(eapi);
         }
@@ -691,26 +727,34 @@ public class ClassHelper {
 
         static Field getParamsMapField(Context context) {
             if (paramsMap == null) {
-                Field[] fields = getClazz(context).getDeclaredFields();
+                Class<?> clz = getClazz(context);
+                if (clz == null) return null;
+                Field[] fields = clz.getDeclaredFields();
                 paramsMap = Stream.of(fields)
                         .filter(c -> Stream.of(c.getType()).anyMatch(m -> m == LinkedHashMap.class))
-                        .findFirst().get();
-                paramsMap.setAccessible(true);
+                        .findFirst().orElse(null);
+                if (paramsMap != null) paramsMap.setAccessible(true);
             }
             return paramsMap;
         }
 
         public static LinkedHashMap<String, String> getParams(Context context, Object eapi) throws IllegalAccessException, NullPointerException {
-            List<Method> list = new ArrayList<>(Arrays.asList(findMethodsByExactParameters(eapi.getClass(), getClazz(context))));
+            Class<?> clz = getClazz(context);
+            if (clz == null) return new LinkedHashMap<>();
+            List<Method> list = new ArrayList<>(Arrays.asList(_findMethods(eapi.getClass(), clz)));
             if (list != null && list.size() != 0) {
-                Object params = XposedHelpers.callMethod(eapi, list.get(0).getName());
-                LinkedHashMap<String, String> map = (LinkedHashMap<String, String>) getParamsMapField(context).get(params);
+                Object params = _callM(eapi, list.get(0).getName());
+                Field paramsField = getParamsMapField(context);
+                if (paramsField == null) return new LinkedHashMap<>();
+                LinkedHashMap<String, String> map = (LinkedHashMap<String, String>) paramsField.get(params);
                 Uri uri = HttpUrl.getUri(context, eapi);
-                for (String name : uri.getQueryParameterNames()) {
-                    String val = uri.getQueryParameter(name);
-                    map.put(name, val != null ? val : "");
+                if (uri != null) {
+                    for (String name : uri.getQueryParameterNames()) {
+                        String val = uri.getQueryParameter(name);
+                        map.put(name, val != null ? val : "");
+                    }
                 }
-                return (LinkedHashMap<String, String>) getParamsMapField(context).get(params);
+                return (LinkedHashMap<String, String>) paramsField.get(params);
             }
             return new LinkedHashMap<>();
         }
@@ -751,11 +795,14 @@ public class ClassHelper {
         public static List<Method> getMethodList(Context context) {
             if (methodList == null) {
                 methodList = new ArrayList<>();
-                methodList.addAll(Stream.of(getClazz(context).getDeclaredMethods())
-                        .filter(m -> m.getExceptionTypes().length == 1)
-                        .filter(m -> m.getParameterTypes().length == 5)
-                        .filter(m -> m.getReturnType().getName().contains("Response"))
-                        .toList());
+                Class<?> clz = getClazz(context);
+                if (clz != null) {
+                    methodList.addAll(Stream.of(clz.getDeclaredMethods())
+                            .filter(m -> m.getExceptionTypes().length == 1)
+                            .filter(m -> m.getParameterTypes().length == 5)
+                            .filter(m -> m.getReturnType().getName().contains("Response"))
+                            .toList());
+                }
             }
             return methodList;
         }

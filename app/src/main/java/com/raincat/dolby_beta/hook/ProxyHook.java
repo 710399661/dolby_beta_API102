@@ -15,13 +15,7 @@ import java.util.List;
 
 import javax.net.ssl.SSLSocketFactory;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
-import static de.robv.android.xposed.XposedBridge.hookAllConstructors;
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
 
 /**
  * <pre>
@@ -32,6 +26,12 @@ import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
  *     version: 1.0
  * </pre>
  */
+
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
 
 public class ProxyHook {
     private static SSLSocketFactory socketFactory;
@@ -44,28 +44,30 @@ public class ProxyHook {
 
     private final List<String> whiteUrlList = Arrays.asList("song/enhance/player/url", "song/enhance/download/url");
 
-    public ProxyHook(Context context, boolean isPlayProcess) {
-        Class<?> realCallClass = findClassIfExists("okhttp3.internal.connection.RealCall", context.getClassLoader());
+    public ProxyHook(Context context, int versionCode, XposedModule module, boolean isPlayProcess) {
+        Class<?> realCallClass = _findClassIfExists("okhttp3.internal.connection.RealCall", context.getClassLoader());
         if (realCallClass != null) {
             fieldSSLSocketFactory = "sslSocketFactoryOrNull";
         } else {
-            realCallClass = findClassIfExists("okhttp3.RealCall", context.getClassLoader());
+            realCallClass = _findClassIfExists("okhttp3.RealCall", context.getClassLoader());
             if (realCallClass != null)
                 fieldSSLSocketFactory = "sslSocketFactory";
             else {
-                realCallClass = findClassIfExists("okhttp3.z", context.getClassLoader());
-                fieldSSLSocketFactory = "o";
-                fieldHttpUrl = "a";
-                fieldProxy = "d";
+                realCallClass = _findClassIfExists("okhttp3.z", context.getClassLoader());
+                if (realCallClass != null) {
+                    fieldSSLSocketFactory = "o";
+                    fieldHttpUrl = "a";
+                    fieldProxy = "d";
+                }
             }
         }
 
-        hookAllConstructors(realCallClass, new XC_MethodHook() {
+        if (realCallClass != null) _hookAllCtors(realCallClass, new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                 if (param.args.length == 3) {
-                    Object client = param.args[0];
-                    Object request = param.args[1];
+                    Object client = _arg(param,0);
+                    Object request = _arg(param,1);
 
                     Field urlField = request.getClass().getDeclaredField(fieldHttpUrl);
                     urlField.setAccessible(true);
@@ -80,24 +82,24 @@ public class ProxyHook {
             }
         });
 
-        Class<?> okHttpClientBuilderClass = XposedHelpers.findClassIfExists("okhttp3.OkHttpClient$Builder", context.getClassLoader());
+        Class<?> okHttpClientBuilderClass = _findClassIfExists("okhttp3.OkHttpClient$Builder", context.getClassLoader());
         if (okHttpClientBuilderClass != null) {
-            XposedBridge.hookAllMethods(okHttpClientBuilderClass, "addInterceptor", new XC_MethodHook() {
+            _hookAllMethods(okHttpClientBuilderClass, "addInterceptor", new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.beforeHookedMethod(param);
-                    if (param.args[0].getClass().getName().contains("com.netease.cloudmusic.network.cronet"))
-                        param.setResult(param.thisObject);
-//                        XposedBridge.hookAllMethods(param.args[0].getClass(), "intercept", new XC_MethodHook() {
+                    if (_arg(param,0).getClass().getName().contains("com.netease.cloudmusic.network.cronet"))
+                        _setRes(param,_this(param));
+//                        _hookAllMethods(_arg(param,0).getClass(), "intercept", new XC_MethodHook() {
 //                            @Override
-//                            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+//                            protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
 //                                super.beforeHookedMethod(param);
-//                                Object object = param.args[0];
+//                                Object object = _arg(param,0);
 //                                if (object != null && object.getClass().getName().contains("Chain")) {
-//                                    Object request = XposedHelpers.callMethod(object, "request");
+//                                    Object request = _callM(object, "request");
 //                                    if (request.toString().contains("song/enhance/player/url") || request.toString().contains("song/enhance/download/url")) {
-//                                        Object response = XposedHelpers.callMethod(object, "proceed", request);
-//                                        param.setResult(response);
+//                                        Object response = _callM(object, "proceed", request);
+//                                        _setRes(param,response);
 //                                    }
 //                                }
 //                            }
@@ -107,9 +109,9 @@ public class ProxyHook {
         }
 
         if (!isPlayProcess)
-            findAndHookMethod("com.netease.cloudmusic.activity.LoadingActivity", context.getClassLoader(), "onCreate", Bundle.class, new XC_MethodHook() {
+            _hookMethod("com.netease.cloudmusic.activity.LoadingActivity", context.getClassLoader(), "onCreate", Bundle.class, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                     ExtraHelper.setExtraDate(ExtraHelper.SCRIPT_STATUS, "0");
                     if (SettingHelper.getInstance().getSetting(SettingHelper.proxy_master_key)) {
                         ScriptHelper.initScript(context, false);

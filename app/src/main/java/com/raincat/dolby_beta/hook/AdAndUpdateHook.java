@@ -8,12 +8,7 @@ import com.raincat.dolby_beta.helper.SettingHelper;
 
 import java.lang.reflect.Field;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
-import static de.robv.android.xposed.XposedBridge.hookAllMethods;
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
 
 /**
  * <pre>
@@ -24,13 +19,19 @@ import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class AdAndUpdateHook {
     private static String okHttpClientClassString = "okhttp3.OkHttpClient";
     private static String newCallMethodString = "newCall";
     private static String httpUrlFieldString = "url";
     private static String urlFieldString = "url";
 
-    public AdAndUpdateHook(Context context, final int versionCode) {
+    public AdAndUpdateHook(Context context, final int versionCode, XposedModule module) {
         if (versionCode < 138) {
             okHttpClientClassString = "okhttp3.x";
             newCallMethodString = "a";
@@ -39,13 +40,13 @@ public class AdAndUpdateHook {
         }
 
         //去广告和升级
-        Class<?> okHttpClientClass = findClassIfExists(okHttpClientClassString, context.getClassLoader());
+        Class<?> okHttpClientClass = _findClassIfExists(okHttpClientClassString, context.getClassLoader());
         if (okHttpClientClass != null)
-            hookAllMethods(okHttpClientClass, newCallMethodString, new XC_MethodHook() {
+            _hookAllMethods(okHttpClientClass, newCallMethodString, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if (param.args != null && param.args.length == 1 && param.args[0].getClass().getName().contains("okhttp")) {
-                        Object request = param.args[0];
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
+                    if (param.args != null && param.args.length == 1 && _arg(param,0).getClass().getName().contains("okhttp")) {
+                        Object request = _arg(param,0);
                         Field httpUrl = request.getClass().getDeclaredField(httpUrlFieldString);
                         httpUrl.setAccessible(true);
                         Object urlObj = httpUrl.get(request);
@@ -66,13 +67,13 @@ public class AdAndUpdateHook {
                 }
             });
 
-        if (SettingHelper.getInstance().isEnable(SettingHelper.black_key) && XposedHelpers.findClassIfExists("com.netease.cloudmusic.activity.LoadingAdActivity", context.getClassLoader()) != null)
-            findAndHookMethod("com.netease.cloudmusic.activity.LoadingAdActivity", context.getClassLoader(),
+        if (SettingHelper.getInstance().isEnable(SettingHelper.black_key) && _findClassIfExists("com.netease.cloudmusic.activity.LoadingAdActivity", context.getClassLoader()) != null)
+            _hookMethod("com.netease.cloudmusic.activity.LoadingAdActivity", context.getClassLoader(),
                     "onCreate", Bundle.class, new XC_MethodHook() {
                         @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            ((Activity) param.thisObject).finish();
-                            param.setResult(null);
+                        protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
+                            ((Activity) _this(param)).finish();
+                            _setRes(param,null);
                         }
                     });
     }

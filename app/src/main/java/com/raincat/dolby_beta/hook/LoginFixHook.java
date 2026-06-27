@@ -2,8 +2,6 @@ package com.raincat.dolby_beta.hook;
 
 import android.content.Context;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * <pre>
@@ -15,25 +13,31 @@ import de.robv.android.xposed.XposedHelpers;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class LoginFixHook {
-    public LoginFixHook(Context context) {
-        Class<?> neteaseMusicUtilsClass = XposedHelpers.findClassIfExists("com.netease.cloudmusic.utils.NeteaseMusicUtils", context.getClassLoader());
+    public LoginFixHook(Context context, XposedModule module) {
+        Class<?> neteaseMusicUtilsClass = _findClassIfExists("com.netease.cloudmusic.utils.NeteaseMusicUtils", context.getClassLoader());
         if (neteaseMusicUtilsClass != null) {
-            XposedHelpers.findAndHookMethod(neteaseMusicUtilsClass, "serialdata", String.class, String.class, new XC_MethodHook() {
+            _hookMethod(neteaseMusicUtilsClass, "serialdata", String.class, String.class, new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.beforeHookedMethod(param);
-                    if (param.args[0].equals("/api/login/cellphone")
-                            || param.args[0].equals("/api/login")
-                            || param.args[0].equals("/api/login/sns")) {
-                        if (((String) param.args[1]).contains("\"checkToken\":\"\"")) {
-                            Class<?> watchmanClass = XposedHelpers.findClassIfExists("com.netease.mobsecurity.rjsb.watchman", context.getClassLoader());
+                    if (_arg(param,0).equals("/api/login/cellphone")
+                            || _arg(param,0).equals("/api/login")
+                            || _arg(param,0).equals("/api/login/sns")) {
+                        if (((String) _arg(param,1)).contains("\"checkToken\":\"\"")) {
+                            Class<?> watchmanClass = _findClassIfExists("com.netease.mobsecurity.rjsb.watchman", context.getClassLoader());
                             if (watchmanClass == null)
-                                watchmanClass = XposedHelpers.findClassIfExists("com.netease.mobsec.rjsb.watchman", context.getClassLoader());
+                                watchmanClass = _findClassIfExists("com.netease.mobsec.rjsb.watchman", context.getClassLoader());
                             if (watchmanClass != null) {
-                                XposedHelpers.callStaticMethod(watchmanClass, "init", context, "YD00000558929251");
-                                String checkToken = (String) XposedHelpers.callStaticMethod(watchmanClass, "getToken", "30b0cdd23ed1144a0b78de049edc09824", 500, 2);
-                                param.args[1] = ((String) param.args[1]).replaceAll("\"checkToken\":\"\"", "\"checkToken\":\"" + checkToken + "\"");
+                                _callSM(watchmanClass, "init", context, "YD00000558929251");
+                                String checkToken = (String) _callSM(watchmanClass, "getToken", "30b0cdd23ed1144a0b78de049edc09824", 500, 2);
+                                param.args[1] = ((String) _arg(param,1)).replaceAll("\"checkToken\":\"\"", "\"checkToken\":\"" + checkToken + "\"");
                             }
                         }
                     }

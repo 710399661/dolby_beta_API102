@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 
-import de.robv.android.xposed.XposedBridge;
+import android.util.Log;
 
 /**
  * <pre>
@@ -48,7 +48,7 @@ public class MessageHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             NotificationHelper.getInstance(context).sendUnLockNotification(context, intent.getIntExtra("code", 0x10),
                     intent.getStringExtra("title"), intent.getStringExtra("title"), intent.getStringExtra("message"));
-        XposedBridge.log(intent.getStringExtra("title") + "：" + intent.getStringExtra("message"));
+        Log.w("DolbyBeta", intent.getStringExtra("title") + ": " + intent.getStringExtra("message"));
     }
 
     private final static String normalMessage = "请确保已使用官方版网易云。";

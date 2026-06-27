@@ -12,11 +12,7 @@ import com.raincat.dolby_beta.utils.Tools;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XC_MethodReplacement;
 
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
 
 /**
  * <pre>
@@ -28,16 +24,22 @@ import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class AutoSignInHook {
     private String methodInitDrawerHeader = "initDrawerHeader";
     private String valueDrawerUserSignIn = "drawerUserSignIn";
 
-    public AutoSignInHook(Context context, int versionCode) {
+    public AutoSignInHook(Context context, int versionCode, XposedModule module) {
         //每天0点签到
-        findAndHookMethod("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader(),
+        _hookMethod("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader(),
                 "onStart", new XC_MethodHook() {
                     @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
+                    protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) {
                         if (SettingHelper.getInstance().isEnable(SettingHelper.sign_key) || SettingHelper.getInstance().isEnable(SettingHelper.sign_song_key)) {
                             String userId = ExtraHelper.getExtraDate(ExtraHelper.USER_ID);
                             String cookie = ExtraHelper.getExtraDate(ExtraHelper.COOKIE);
@@ -53,7 +55,7 @@ public class AutoSignInHook {
                             if (SettingHelper.getInstance().isEnable(SettingHelper.sign_song_key)) {
                                 long lastSignInTime = Long.parseLong(ExtraHelper.getExtraDate(ExtraHelper.SIGN_SONG_TIME + userId));
                                 if (lastSignInTime < Tools.getTodayStartTime()) {
-                                    SignSongHelper.showSignStatusDialog((Context) param.thisObject, SettingHelper.sign_song_title, null);
+                                    SignSongHelper.showSignStatusDialog((Context) _this(param), SettingHelper.sign_song_title, null);
                                     ExtraHelper.setExtraDate(ExtraHelper.SIGN_SONG_TIME + userId, System.currentTimeMillis());
                                 }
                             }
@@ -62,26 +64,26 @@ public class AutoSignInHook {
                 });
 
         //更改当前签到状态
-        Class<?> userProfileClass = findClassIfExists("com.netease.cloudmusic.meta.Profile", context.getClassLoader());
+        Class<?> userProfileClass = _findClassIfExists("com.netease.cloudmusic.meta.Profile", context.getClassLoader());
         if (userProfileClass != null) {
-            findAndHookMethod(userProfileClass, "isMobileSign", XC_MethodReplacement.returnConstant(true));
+            _hookMethod(userProfileClass, "isMobileSign", _returnConstant(true));
         }
 
-        Class<?> mainDrawerClass = findClassIfExists("com.netease.cloudmusic.ui.MainDrawer", context.getClassLoader());
+        Class<?> mainDrawerClass = _findClassIfExists("com.netease.cloudmusic.ui.MainDrawer", context.getClassLoader());
         if (mainDrawerClass == null) {
-            mainDrawerClass = findClassIfExists("com.netease.cloudmusic.ui.l", context.getClassLoader());
+            mainDrawerClass = _findClassIfExists("com.netease.cloudmusic.ui.l", context.getClassLoader());
             methodInitDrawerHeader = "r";
             valueDrawerUserSignIn = "t";
         }
 
         //更改当前签到状态文字
         if (versionCode < 7003000 && mainDrawerClass != null) {
-            findAndHookMethod(mainDrawerClass, methodInitDrawerHeader, new XC_MethodHook() {
+            _hookMethod(mainDrawerClass, methodInitDrawerHeader, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    Field drawerUserSignInField = param.thisObject.getClass().getDeclaredField(valueDrawerUserSignIn);
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
+                    Field drawerUserSignInField = _this(param).getClass().getDeclaredField(valueDrawerUserSignIn);
                     drawerUserSignInField.setAccessible(true);
-                    TextView drawerUserSignIn = (TextView) drawerUserSignInField.get(param.thisObject);
+                    TextView drawerUserSignIn = (TextView) drawerUserSignInField.get(_this(param));
                     drawerUserSignIn.setText("已签到");
                     drawerUserSignIn.setEnabled(false);
                     drawerUserSignIn.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);

@@ -6,7 +6,7 @@ import android.content.Intent;
 import android.text.TextUtils;
 
 import com.raincat.dolby_beta.BuildConfig;
-import com.raincat.dolby_beta.Hook;
+import com.raincat.dolby_beta.HookRegistry;
 import com.raincat.dolby_beta.net.HTTPSTrustManager;
 import com.raincat.dolby_beta.utils.Tools;
 import com.stericson.RootShell.execution.Command;
@@ -105,7 +105,7 @@ public class ScriptHelper {
             @Override
             public void commandOutput(int id, String line) {
                 if ((!line.contains("mERROR") && line.contains("Error:")) || line.contains("Port ") || line.contains("Please ")) {
-                    Intent intent = new Intent(Hook.msg_send_notification);
+                    Intent intent = new Intent(HookRegistry.msg_send_notification);
                     intent.putExtra("message", line);
                     intent.putExtra("title", "脚本产生如下错误信息，若脚本因此无法运行请提issue");
                     if (neteaseContext != null)

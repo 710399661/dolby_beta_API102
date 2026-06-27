@@ -8,8 +8,6 @@ import org.json.JSONObject;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 
 /**
  * <pre>
@@ -20,15 +18,22 @@ import de.robv.android.xposed.XposedBridge;
  *     version: 1.0
  * </pre>
  */
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import io.github.libxposed.api.XposedModule;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class AdExtraHook {
-    public AdExtraHook() {
+    public AdExtraHook(XposedModule module) {
         if (SettingHelper.getInstance().isEnable(SettingHelper.black_key)) {
             List<Method> methods = ClassHelper.Ad.getAdMethod();
             if (methods != null) {
                 for (Method method : methods) {
-                    XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    _hookMethod2(method, new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                             super.beforeHookedMethod(param);
                             for (int i = 0; i < param.args.length; i++) {
                                 if (param.args[i] instanceof JSONObject) {

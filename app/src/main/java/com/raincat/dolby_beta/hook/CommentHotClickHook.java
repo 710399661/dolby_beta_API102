@@ -10,9 +10,6 @@ import org.json.JSONArray;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 /**
  * <pre>
@@ -23,17 +20,23 @@ import de.robv.android.xposed.XposedHelpers;
  *     version: 1.0
  * </pre>
  */
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class CommentHotClickHook {
-    public CommentHotClickHook(Context context) {
+    public CommentHotClickHook(Context context, XposedModule module) {
         if (!SettingHelper.getInstance().isEnable(SettingHelper.beauty_comment_hot_key))
             return;
         Class<?> commentDataClass = ClassHelper.CommentDataClass.getClazz();
         if (commentDataClass != null) {
-            XposedBridge.hookAllConstructors(commentDataClass, new XC_MethodHook() {
+            _hookAllCtors(commentDataClass, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.afterHookedMethod(param);
-                    Object object = param.thisObject;
+                    Object object = _this(param);
                     Field[] fields = object.getClass().getDeclaredFields();
                     for (Field field : fields) {
                         if (Modifier.isPrivate(field.getModifiers()) && !Modifier.isFinal(field.getModifiers()) && field.getType() == int.class) {
@@ -46,15 +49,16 @@ public class CommentHotClickHook {
                 }
             });
 
-            Class<?> sortTypeListClass = XposedHelpers.findClassIfExists("com.netease.cloudmusic.module.comment2.meta.SortTypeList", context.getClassLoader());
+            Class<?> sortTypeListClass = _findClassIfExists("com.netease.cloudmusic.module.comment2.meta.SortTypeList", context.getClassLoader());
             if (sortTypeListClass == null)
-                sortTypeListClass = XposedHelpers.findClassIfExists("com.netease.cloudmusic.music.biz.comment.meta.SortTypeList", context.getClassLoader());
+                sortTypeListClass = _findClassIfExists("com.netease.cloudmusic.music.biz.comment.meta.SortTypeList", context.getClassLoader());
             if (sortTypeListClass != null)
-                XposedHelpers.findAndHookMethod(sortTypeListClass, "parseList", JSONArray.class, new XC_MethodHook() {
+                _hookMethod(sortTypeListClass, "parseList", JSONArray.class, new XC_MethodHook() {
                     @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                         super.beforeHookedMethod(param);
-                        JSONArray array = (JSONArray) param.args[0];
+                        JSONArray array = (JSONArray) _arg(param,0);
+                        if (array.length() < 3) return;
                         JSONArray array2 = new JSONArray();
                         array2.put(array.getJSONObject(1));
                         array2.put(array.getJSONObject(2));

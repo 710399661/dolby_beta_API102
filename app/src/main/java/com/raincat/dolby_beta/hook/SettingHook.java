@@ -27,7 +27,6 @@ import com.raincat.dolby_beta.view.beauty.BeautyBlackHideView;
 import com.raincat.dolby_beta.view.beauty.BeautyBubbleHideView;
 import com.raincat.dolby_beta.view.beauty.BeautyCommentHotView;
 import com.raincat.dolby_beta.view.beauty.BeautyKSongHideView;
-import com.raincat.dolby_beta.view.beauty.BeautyNightModeView;
 import com.raincat.dolby_beta.view.beauty.BeautyRotationView;
 import com.raincat.dolby_beta.view.beauty.BeautySidebarHideItem;
 import com.raincat.dolby_beta.view.beauty.BeautySidebarHideView;
@@ -64,11 +63,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
 
 /**
  * <pre>
@@ -78,6 +73,12 @@ import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
  *     version: 1.0
  * </pre>
  */
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class SettingHook {
     private String SettingActivity;
     private String switchViewName = "";
@@ -86,7 +87,7 @@ public class SettingHook {
 
     private BroadcastReceiver broadcastReceiver;
 
-    public SettingHook(Context context,int versionCode) {
+    public SettingHook(Context context, int versionCode, XposedModule module) {
         //一切的前提，没这个页面连设置都进不去
         if(versionCode>=8007000)
         {
@@ -95,7 +96,8 @@ public class SettingHook {
         {
             SettingActivity="com.netease.cloudmusic.activity.SettingActivity";
         }
-        Class<?> settingActivityClass = findClassIfExists(SettingActivity, context.getClassLoader());
+        Class<?> settingActivityClass = _findClassIfExists(SettingActivity, context.getClassLoader());
+        if (settingActivityClass == null) return;
         Field[] allFields = settingActivityClass.getDeclaredFields();
         for (Field field : allFields) {
             if (field.getType().getName().contains("Switch")) {
@@ -104,11 +106,11 @@ public class SettingHook {
             }
         }
 
-        findAndHookMethod(settingActivityClass, "onCreate", Bundle.class, new XC_MethodHook() {
+        _hookMethod(settingActivityClass, "onCreate", Bundle.class, new XC_MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+            protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                 super.afterHookedMethod(param);
-                Context c = (Context) param.thisObject;
+                Context c = (Context) _this(param);
                 //注册广播
                 registerBroadcastReceiver(c);
                 //初始化控件
@@ -116,12 +118,12 @@ public class SettingHook {
             }
         });
 
-        findAndHookMethod(settingActivityClass, "onDestroy", new XC_MethodHook() {
+        _hookMethod(settingActivityClass, "onDestroy", new XC_MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+            protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                 super.beforeHookedMethod(param);
                 if (broadcastReceiver != null)
-                    ((Context) param.thisObject).unregisterReceiver(broadcastReceiver);
+                    ((Context) _this(param)).unregisterReceiver(broadcastReceiver);
             }
         });
     }
@@ -129,7 +131,7 @@ public class SettingHook {
     private void initView(final Context context) {
         TextView originalText = null;
         //获取开关控件
-        View switchCompat = (View) XposedHelpers.getObjectField(context, switchViewName);
+        View switchCompat = (View) _getObjField(context, switchViewName);
         //获取开关控件爸爸
         ViewGroup parent = (ViewGroup) switchCompat.getParent();
         //获取开关控件爷爷
@@ -197,9 +199,11 @@ public class SettingHook {
             @Override
             public void onReceive(Context c, Intent intent) {
                 if (intent.getAction().equals(SettingHelper.refresh_setting)) {
-                    for (int i = 0; i < dialogRoot.getChildCount(); i++) {
-                        if (dialogRoot.getChildAt(i) instanceof BaseDialogItem)
-                            ((BaseDialogItem) dialogRoot.getChildAt(i)).refresh();
+                    if (dialogRoot != null) {
+                        for (int i = 0; i < dialogRoot.getChildCount(); i++) {
+                            if (dialogRoot.getChildAt(i) instanceof BaseDialogItem)
+                                ((BaseDialogItem) dialogRoot.getChildAt(i)).refresh();
+                        }
                     }
                     if (dialogProxyRoot != null)
                         for (int i = 0; i < dialogProxyRoot.getChildCount(); i++) {
@@ -320,7 +324,6 @@ public class SettingHook {
         dialogBeautyRoot = new BaseDialogItem(context);
         dialogBeautyRoot.setOrientation(LinearLayout.VERTICAL);
         dialogBeautyRoot.addView(new BeautyTitleView(context));
-        dialogBeautyRoot.addView(new BeautyNightModeView(context));
         dialogBeautyRoot.addView(new BeautyTabHideView(context));
         dialogBeautyRoot.addView(new BeautyBannerHideView(context));
         dialogBeautyRoot.addView(new BeautyBubbleHideView(context));

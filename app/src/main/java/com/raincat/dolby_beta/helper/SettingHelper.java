@@ -112,7 +112,7 @@ public class SettingHelper {
 
     public static final String beauty_night_mode_key = "β_beauty_night_mode_key";
     public static final String beauty_night_mode_title = "跟随系统切换夜间模式";
-    public static final String beauty_night_mode_sub = "自动根据系统深色模式状态切换夜间/日间模式";
+    public static final String beauty_night_mode_sub = "已由官方实现，本模块不再提供";
 
     public static final String beauty_tab_hide_key = "β_beauty_tab_hide_key";
     public static final String beauty_tab_hide_title = "精简Tab";
@@ -206,8 +206,10 @@ public class SettingHelper {
     public HashMap<String, Boolean> getSidebarSetting(LinkedHashMap<String, String> map) {
         if (sidebarSettingMap == null) {
             sidebarSettingMap = new HashMap<>();
-            for (String key : map.keySet()) {
-                sidebarSettingMap.put(key, sharedPreferences.getBoolean(key, false));
+            if (map != null) {
+                for (String key : map.keySet()) {
+                    sidebarSettingMap.put(key, sharedPreferences.getBoolean(key, false));
+                }
             }
         }
         return sidebarSettingMap;

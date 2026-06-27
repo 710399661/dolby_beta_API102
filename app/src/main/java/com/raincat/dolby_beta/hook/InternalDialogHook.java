@@ -1,10 +1,7 @@
 package com.raincat.dolby_beta.hook;
 import android.content.Context;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
 
 /**
  * <pre>
@@ -15,19 +12,25 @@ import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class InternalDialogHook {
-    public InternalDialogHook(Context context, int versionCode) {
+    public InternalDialogHook(Context context, int versionCode, XposedModule module) {
         if (versionCode < 138)
             return;
 
-        Class<?> materialDialogHelperClass = findClassIfExists("com.netease.cloudmusic.ui.MaterialDiloagCommon.MaterialDialogHelper", context.getClassLoader());
+        Class<?> materialDialogHelperClass = _findClassIfExists("com.netease.cloudmusic.ui.MaterialDiloagCommon.MaterialDialogHelper", context.getClassLoader());
         if (materialDialogHelperClass != null) {
-            XposedBridge.hookAllMethods(materialDialogHelperClass, "materialDialog", new XC_MethodHook() {
+            _hookAllMethods(materialDialogHelperClass, "materialDialog", new XC_MethodHook() {
                 @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.beforeHookedMethod(param);
-                    if (param.args[0].getClass().getName().contains("MainActivity")||param.args[0].getClass().getName().contains("IdentifyActivity"))
-                        param.setResult(null);
+                    if (_arg(param,0).getClass().getName().contains("MainActivity")||_arg(param,0).getClass().getName().contains("IdentifyActivity"))
+                        _setRes(param,null);
                 }
             });
         }

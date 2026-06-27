@@ -8,13 +8,7 @@ import com.raincat.dolby_beta.helper.SettingHelper;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XC_MethodReplacement;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.findClass;
 
 /**
  * <pre>
@@ -25,14 +19,20 @@ import static de.robv.android.xposed.XposedHelpers.findClass;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class GrayHook {
-    public GrayHook(Context context) {
+    public GrayHook(Context context, XposedModule module) {
         if (SettingHelper.getInstance().isEnable(SettingHelper.proxy_gray_key))
-            findAndHookMethod(findClass("com.netease.cloudmusic.meta.MusicInfo", context.getClassLoader()),
-                    "hasCopyRight", XC_MethodReplacement.returnConstant(true));
+            _hookMethod(_findClass("com.netease.cloudmusic.meta.MusicInfo", context.getClassLoader()),
+                    "hasCopyRight", _returnConstant(true));
 
         if (SettingHelper.getInstance().isEnable(SettingHelper.proxy_master_key)) {
-            Class<?> songPrivilegeClass = XposedHelpers.findClassIfExists("com.netease.cloudmusic.meta.virtual.SongPrivilege", context.getClassLoader());
+            Class<?> songPrivilegeClass = _findClassIfExists("com.netease.cloudmusic.meta.virtual.SongPrivilege", context.getClassLoader());
             if (songPrivilegeClass != null) {
                 Method method = null;
                 try {
@@ -45,13 +45,13 @@ public class GrayHook {
                     }
                 }
                 if (method != null)
-                    XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    _hookMethod2(method, new XC_MethodHook() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                             super.beforeHookedMethod(param);
-                            Object object = param.thisObject;
-                            long id = (long) XposedHelpers.callMethod(object, "getId");
-                            if (id == 0)
+                            Object object = _this(param);
+                            Object idObj = _callM(object, "getId");
+                            if (!(idObj instanceof Long) || (Long) idObj == 0)
                                 return;
 
                             Field[] fields = object.getClass().getDeclaredFields();
@@ -68,13 +68,13 @@ public class GrayHook {
 
                             try {
                                 param.args[0] = maxbr;
-                                XposedHelpers.callMethod(object, "setSubPriv", 1);
-                                XposedHelpers.callMethod(object, "setSharePriv", 1);
-                                XposedHelpers.callMethod(object, "setCommentPriv", 1);
-                                XposedHelpers.callMethod(object, "setDownMaxLevel", maxbr);
-                                XposedHelpers.callMethod(object, "setPlayMaxLevel", maxbr);
+                                _callM(object, "setSubPriv", 1);
+                                _callM(object, "setSharePriv", 1);
+                                _callM(object, "setCommentPriv", 1);
+                                _callM(object, "setDownMaxLevel", maxbr);
+                                _callM(object, "setPlayMaxLevel", maxbr);
                                 if (object.getClass().getDeclaredMethod("setPlayMaxbr", int.class) != null)
-                                    XposedHelpers.callMethod(object, "setPlayMaxbr", maxbr);
+                                    _callM(object, "setPlayMaxbr", maxbr);
                             } catch (Exception e) {
                                 Log.w("error", e.getMessage());
                             }

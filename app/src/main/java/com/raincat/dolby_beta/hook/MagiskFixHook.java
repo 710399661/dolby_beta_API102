@@ -10,31 +10,40 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
+
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 
 public class MagiskFixHook {
-    public MagiskFixHook(Context context) {
-        Method[] methods = XposedHelpers.findMethodsByExactParameters(
-                XposedHelpers.findClass("com.netease.cloudmusic.utils.NeteaseMusicUtils", context.getClassLoader()), List.class, boolean.class);
-        Method method = Stream.of(methods).sortBy(Method::getName).findFirst().get();
-        XposedBridge.hookMethod(method, new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
-                List<String> list = new ArrayList<>();
-                list.add(Environment.getExternalStorageDirectory().getAbsolutePath());
+    public MagiskFixHook(Context context, XposedModule module) {
+        try {
+            Class<?> utilsClass = _findClass("com.netease.cloudmusic.utils.NeteaseMusicUtils", context.getClassLoader());
+            if (utilsClass == null) return;
+            Method[] methods = _findMethods(utilsClass, List.class, boolean.class);
+            Method method = Stream.of(methods).sortBy(Method::getName).findFirst().orElse(null);
+            if (method == null) return;
+            _hookMethod2(method, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) {
+                    List<String> list = new ArrayList<>();
+                    list.add(Environment.getExternalStorageDirectory().getAbsolutePath());
 
-                //外置卡
-                String sdCard = getSecondaryStoragePath(context);
-                if (sdCard != null) {
-                    String state = getStorageState(context, sdCard);
-                    if (state.contains(Environment.MEDIA_MOUNTED))
-                        list.add(sdCard);
+                    //外置卡
+                    String sdCard = getSecondaryStoragePath(context);
+                    if (sdCard != null) {
+                        String state = getStorageState(context, sdCard);
+                        if (state.contains(Environment.MEDIA_MOUNTED))
+                            list.add(sdCard);
+                    }
+                    _setRes(param,list);
                 }
-                param.setResult(list);
-            }
-        });
+            });
+        } catch (Exception e) {
+            android.util.Log.w("MagiskFixHook", "Failed to hook NeteaseMusicUtils", e);
+        }
     }
 
     // 获取主存储卡路径（不要根据系统推荐改黄色的东西！）

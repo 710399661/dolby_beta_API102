@@ -7,11 +7,7 @@ import com.raincat.dolby_beta.helper.ClassHelper;
 import com.raincat.dolby_beta.helper.ExtraHelper;
 import com.raincat.dolby_beta.helper.UserHelper;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
 
-import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
-import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
 
 /**
  * <pre>
@@ -23,29 +19,35 @@ import static de.robv.android.xposed.XposedHelpers.findClassIfExists;
  * </pre>
  */
 
+import io.github.libxposed.api.XposedModule;
+
+import io.github.libxposed.api.XposedInterface;
+import static com.raincat.dolby_beta.XposedAdapter.*;
+import de.robv.android.xposed.XC_MethodHook;
+
 public class UserProfileHook {
-    public UserProfileHook(Context context) {
+    public UserProfileHook(Context context, XposedModule module) {
         //获取用户id
-        Class<?> userProfileClass = findClassIfExists("com.netease.cloudmusic.meta.Profile", context.getClassLoader());
+        Class<?> userProfileClass = _findClassIfExists("com.netease.cloudmusic.meta.Profile", context.getClassLoader());
         if (userProfileClass != null) {
-            findAndHookMethod(userProfileClass, "setNickname", String.class, new XC_MethodHook() {
+            _hookMethod(userProfileClass, "setNickname", String.class, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.afterHookedMethod(param);
-                    String nickName = (String) param.args[0];
+                    String nickName = (String) _arg(param,0);
                     if (nickName.equals("未登录") || nickName.length() == 0)
                         return;
-                    if ((boolean) XposedHelpers.callMethod(param.thisObject, "isMe") && ExtraHelper.getExtraDate(ExtraHelper.USER_ID).equals("-1"))
-                        ExtraHelper.setExtraDate(ExtraHelper.USER_ID, XposedHelpers.callMethod(param.thisObject, "getUserId"));
+                    if ((boolean) _callM(_this(param), "isMe") && ExtraHelper.getExtraDate(ExtraHelper.USER_ID).equals("-1"))
+                        ExtraHelper.setExtraDate(ExtraHelper.USER_ID, _callM(_this(param), "getUserId"));
                 }
             });
         }
 
-        Class<?> mainActivityClass = findClassIfExists("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader());
+        Class<?> mainActivityClass = _findClassIfExists("com.netease.cloudmusic.activity.MainActivity", context.getClassLoader());
         if (mainActivityClass != null) {
-            findAndHookMethod(mainActivityClass, "onResume", new XC_MethodHook() {
+            _hookMethod(mainActivityClass, "onResume", new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.afterHookedMethod(param);
                     new Thread(() -> {
                         if (ExtraHelper.getExtraDate(ExtraHelper.COOKIE).equals("-1"))
@@ -58,11 +60,11 @@ public class UserProfileHook {
         }
 
         //登录页被创建的时候说明用户数据需要被刷新
-        Class<?> loginActivityClass = findClassIfExists("com.netease.cloudmusic.activity.LoginActivity", context.getClassLoader());
+        Class<?> loginActivityClass = _findClassIfExists("com.netease.cloudmusic.activity.LoginActivity", context.getClassLoader());
         if (loginActivityClass != null) {
-            findAndHookMethod(loginActivityClass, "onCreate", Bundle.class, new XC_MethodHook() {
+            _hookMethod(loginActivityClass, "onCreate", Bundle.class, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.afterHookedMethod(param);
                     ExtraHelper.cleanUserData();
                 }
@@ -70,14 +72,14 @@ public class UserProfileHook {
         }
 
         //获取我喜欢的歌单id
-        Class<?> playListClass = findClassIfExists("com.netease.cloudmusic.meta.PlayList", context.getClassLoader());
+        Class<?> playListClass = _findClassIfExists("com.netease.cloudmusic.meta.PlayList", context.getClassLoader());
         if (playListClass != null) {
-            findAndHookMethod(playListClass, "setSpecialType", int.class, new XC_MethodHook() {
+            _hookMethod(playListClass, "setSpecialType", int.class, new XC_MethodHook() {
                 @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
                     super.afterHookedMethod(param);
                     if ((int) param.args[0] == 5 && ExtraHelper.getExtraDate(ExtraHelper.LOVE_PLAY_LIST).equals("-1"))
-                        ExtraHelper.setExtraDate(ExtraHelper.LOVE_PLAY_LIST, XposedHelpers.callMethod(param.thisObject, "getId"));
+                        ExtraHelper.setExtraDate(ExtraHelper.LOVE_PLAY_LIST, _callM(_this(param), "getId"));
                 }
             });
         }
