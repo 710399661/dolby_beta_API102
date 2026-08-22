@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - master
-    # 移除 paths 限制，使每次 PR 代码变更都触发构建
   workflow_dispatch:
 
 jobs:
@@ -16,16 +15,16 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # 可考虑升级到 v5（如有）
 
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '11'  # 根据您的项目实际情况调整
+          java-version: '17'
 
       - name: Cache Gradle dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches/
@@ -36,24 +35,26 @@ jobs:
 
       - name: Sync latest Unblocked Music source code
         run: |
-          git clone --depth=1 https://github.com/luoxingran/server.git
+          set -e
+          git clone --depth=1 https://github.com/luoxingran/server.git || { echo "Clone failed"; exit 1; }
           cd server
           zip -r ../UnblockNeteaseMusic.zip .
           cd ..
-          # 强制覆盖 assets 中的旧文件
+          mkdir -p app/src/main/assets
           mv -f UnblockNeteaseMusic.zip app/src/main/assets/
           rm -rf server
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
+      - name: Build with Gradle (Release)
+        # 如果未配置签名，此行会失败；可临时改为 assembleDebug
         run: ./gradlew app:assembleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: app/build/outputs/apk/release/app-release.apk  # 明确指定文件名
-          if-no-files-found: error  # 建议改为 error 以尽早发现问题
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
           retention-days: 30
