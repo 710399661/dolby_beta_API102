@@ -7,27 +7,42 @@ on:
   pull_request:
     branches:
       - master
-    paths:
-      - '.github/workflows/*.yml'
+    # 移除 paths 限制，使每次 PR 代码变更都触发构建
   workflow_dispatch:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: set up JDK 1.8
-        uses: actions/setup-java@v1
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
         with:
-          java-version: 1.8
+          distribution: 'temurin'
+          java-version: '11'  # 根据您的项目实际情况调整
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches/
+            ~/.gradle/wrapper/
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-
 
       - name: Sync latest Unblocked Music source code
-        run:
-          git clone --depth=1 https://github.com/luoxingran/server.git && cd server && zip -r ../UnblockNeteaseMusic.zip . && cd .. && rm ./app/src/main/assets/UnblockNeteaseMusic.zip && rm -rf server && mv ./UnblockNeteaseMusic.zip ./app/src/main/assets/UnblockNeteaseMusic.zip
+        run: |
+          git clone --depth=1 https://github.com/luoxingran/server.git
+          cd server
+          zip -r ../UnblockNeteaseMusic.zip .
+          cd ..
+          # 强制覆盖 assets 中的旧文件
+          mv -f UnblockNeteaseMusic.zip app/src/main/assets/
+          rm -rf server
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -39,6 +54,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: ${{github.workspace}}/app/build/outputs/apk/release/*.apk
-          if-no-files-found: warn
+          path: app/build/outputs/apk/release/app-release.apk  # 明确指定文件名
+          if-no-files-found: error  # 建议改为 error 以尽早发现问题
           retention-days: 30
