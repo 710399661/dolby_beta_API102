@@ -2,13 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
-// Disable AAR metadata check (compileSdk 37 not supported by AGP 8.5.2)
-tasks.whenTaskAdded {
-    if (name.contains("checkReleaseAarMetadata")) {
-        enabled = false
-    }
-}
-
 android {
     namespace = "com.raincat.dolby_beta"
     compileSdk = 37
@@ -16,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "com.raincat.dolby_beta"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 37
         versionCode = 400
         versionName = "4.0.0"
 
